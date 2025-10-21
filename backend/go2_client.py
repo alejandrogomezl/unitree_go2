@@ -1,5 +1,6 @@
 from typing import Optional
 from loguru import logger
+from .video import Go2VideoBridge, VIDEO_BUFFER
 from go2_webrtc_driver.webrtc_driver import Go2WebRTCConnection, WebRTCConnectionMethod
 from go2_webrtc_driver.constants import RTC_TOPIC, SPORT_CMD
 
@@ -24,6 +25,14 @@ class Go2Client:
         logger.info(f"Conectando al Go2 en modo {self.method.name}, ip={self.ip}")
         await self.conn.connect()
         logger.success("Conectado al Go2 por WebRTC")
+        try:
+            Go2VideoBridge(self.conn).attach()
+            VIDEO_BUFFER.set_placeholder("Conectado (sin frames aún)")
+        except Exception as e:
+            logger.exception(f"No se pudo adjuntar el vídeo: {e}")
+            
+    def get_connection(self):
+        return self.conn
 
     async def disconnect(self):
         if self.conn:

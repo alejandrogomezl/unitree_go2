@@ -1,16 +1,22 @@
+from __future__ import annotations
+
+import asyncio
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import StreamingResponse
 from loguru import logger
+
 from .logger import setup_logging, add_ws, remove_ws
 from .manager import TeleopManager
 from .gamepad_monitor import GamepadMonitor
+from .video import VIDEO_BUFFER  # <- buffer global de vídeo (placeholder+último frame)
 
 app = FastAPI(title="Go2 Xbox Control")
 setup_logging()
 manager = TeleopManager()
 
-# sirve frontend
+
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 @app.on_event("startup")
@@ -53,3 +59,26 @@ async def ws_logs(ws: WebSocket):
     finally:
         await remove_ws(ws)
         logger.info("Cliente WS desconectado.")
+
+@app.get("/api/video.mjpg")
+async def mjpeg():
+    """
+    Devuelve un stream MJPEG (multipart/x-mixed-replace) con el último frame.
+    Si no hay vídeo del robot, se sirve un placeholder (negro con texto).
+    """
+    boundary = "frame"
+
+    async def gen():
+        while True:
+            jpg = VIDEO_BUFFER.get_jpeg(quality=80)
+            yield (
+                b"--" + boundary.encode() + b"\r\n"
+                b"Content-Type: image/jpeg\r\n"
+                b"Content-Length: " + str(len(jpg)).encode() + b"\r\n\r\n" +
+                jpg + b"\r\n"
+            )
+            # ~30-33 FPS. Ajusta si quieres menos consumo.
+            await asyncio.sleep(0.03)
+
+    headers = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
+    return StreamingResponse(gen(), media_type=f"multipart/x-mixed-replace; boundary={boundary}", headers=headers)
