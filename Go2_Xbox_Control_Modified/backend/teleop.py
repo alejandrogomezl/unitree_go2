@@ -48,7 +48,8 @@ class XboxTeleop:
                 self.gc = sdl2c.Controller(0)
                 logger.success(f"🎮 [SDL2] Controlador: {self.gc.name}")
         except Exception as e:
-            logger.debug(f"[SDL2] Controller no disponible: {e}")
+            if self.settings.log_gamepad:
+                logger.debug(f"[SDL2] Controller no disponible: {e}")
 
         # ---- Backend 2: Joystick clásico ----
         self.js = None
@@ -70,8 +71,8 @@ class XboxTeleop:
         self.ax_rx = AX_RX_DEFAULT if self.settings.yaw_axis  is None else int(self.settings.yaw_axis)
 
         # Estado previo para logs de cambios
-        self._prev_axes = {}
-        self._prev_buttons = {}
+        self._prev_axes: dict[str, float] = {}
+        self._prev_buttons: dict[int, bool] = {}
 
     # ---------- Utilidades de estado ----------
 
@@ -80,8 +81,7 @@ class XboxTeleop:
 
     def num_axes(self) -> int:
         if self.gc:
-            # SDL2 Controller expone nombres, no “num_axes”, devolvemos 6 típicos
-            return 6
+            return 6  # mapeo típico
         if self.js:
             return self.js.get_numaxes()
         return 0
@@ -100,7 +100,6 @@ class XboxTeleop:
         """
         try:
             v = 0.0
-            # rightx debe ser 2, leftx 0
             if idx == 0:
                 v = float(self.gc.get_axis(0))  # leftx
             elif idx == 1:
@@ -175,36 +174,37 @@ class XboxTeleop:
                 # Lee eventos de botones (por si el backend joystick emite)
                 for event in pygame.event.get():
                     if event.type == pygame.JOYBUTTONDOWN:
-                        btn = event.button
-                        logger.debug(f"[BTN DOWN] {btn}")
-                        if btn == 0:       # A -> StandUp
+                        if self.settings.log_gamepad:
+                            logger.debug(f"[BTN DOWN] {event.button}")
+                        if event.button == 0:       # A -> StandUp
                             await self.client.stand()
-                        elif btn == 7:     # START -> StopMove
+                        elif event.button == 7:     # START -> StopMove
                             await self.client.estop_soft()
                     elif event.type == pygame.JOYBUTTONUP:
-                        btn = event.button
-                        logger.debug(f"[BTN UP] {btn}")
+                        if self.settings.log_gamepad:
+                            logger.debug(f"[BTN UP] {event.button}")
 
                 # Lee ejes crudos
                 lx = self.axis_raw(self.ax_lx)
                 ly = self.axis_raw(self.ax_ly)
                 rx = self.axis_raw(self.ax_rx)
 
-                # Dump periódico y on-change
-                now = monotonic()
-                if now - self._last_dump > 1.0:
-                    self._last_dump = now
-                    logger.debug(f"[axes raw] LX(a{self.ax_lx})={lx:+.2f}  LY(a{self.ax_ly})={ly:+.2f}  RX(a{self.ax_rx})={rx:+.2f}")
+                # Dump periódico y on-change (sólo si está activado)
+                if self.settings.log_gamepad:
+                    now = monotonic()
+                    if now - self._last_dump > 1.0:
+                        self._last_dump = now
+                        logger.debug(f"[axes raw] LX(a{self.ax_lx})={lx:+.2f}  LY(a{self.ax_ly})={ly:+.2f}  RX(a{self.ax_rx})={rx:+.2f}")
 
-                def log_change(key, cur, eps=0.04):
-                    prev = self._prev_axes.get(key, 0.0)
-                    if abs(cur - prev) >= eps:
-                        logger.debug(f"[axis Δ] {key}: {prev:+.2f} → {cur:+.2f}")
-                        self._prev_axes[key] = cur
+                    def log_change(key, cur, eps=0.04):
+                        prev = self._prev_axes.get(key, 0.0)
+                        if abs(cur - prev) >= eps:
+                            logger.debug(f"[axis Δ] {key}: {prev:+.2f} → {cur:+.2f}")
+                            self._prev_axes[key] = cur
 
-                log_change(f"a{self.ax_lx}", lx)
-                log_change(f"a{self.ax_ly}", ly)
-                log_change(f"a{self.ax_rx}", rx)
+                    log_change(f"a{self.ax_lx}", lx)
+                    log_change(f"a{self.ax_ly}", ly)
+                    log_change(f"a{self.ax_rx}", rx)
 
                 # Deadzone y escalado (igual que tu script)
                 dz = float(self.settings.deadzone)

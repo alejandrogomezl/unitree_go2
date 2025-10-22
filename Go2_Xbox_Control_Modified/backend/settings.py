@@ -20,9 +20,5 @@ class Settings(BaseModel):
     invert_y: bool = True
     invert_z: bool = False
 
-    # LOG de entrada del mando
-    log_axes_every: float = 1.0   # dump completo de ejes cada N segundos
-    log_on_change: bool = True    # log en cambios significativos
-    change_eps: float = 0.06      # umbral de cambio para log de ejes
-    log_max_changes_per_tick: int = 8  # límites por ciclo para no inundar logs
-    log_raw_axes: bool = True     # loguear valores crudos (sin deadzone)
+     # -------- Logs de mando --------
+    log_gamepad: bool = False      # <--- NUEVO: desactiva todos los logs del mando si False
