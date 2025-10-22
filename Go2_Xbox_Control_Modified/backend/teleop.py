@@ -7,7 +7,7 @@ from .settings import Settings
 # Mapeo por defecto (igual que tu main.py):
 AX_LX_DEFAULT = 0  # izquierda/derecha (lateral -> y)
 AX_LY_DEFAULT = 1  # arriba/abajo (avance -> x, invertido)
-AX_RX_DEFAULT = 3  # yaw (derecha -> +z)
+AX_RX_DEFAULT = 2  # yaw (derecha -> +z)
 
 def apply_deadzone(v: float, dz: float) -> float:
     return 0.0 if abs(v) < dz else v

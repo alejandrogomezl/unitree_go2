@@ -18,7 +18,7 @@ class Settings(BaseModel):
     # Inversiones
     invert_x: bool = False
     invert_y: bool = True
-    invert_z: bool = False
+    invert_z: bool = True
 
      # -------- Logs de mando --------
     log_gamepad: bool = False      # <--- NUEVO: desactiva todos los logs del mando si False
