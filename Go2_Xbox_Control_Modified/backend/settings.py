@@ -17,7 +17,7 @@ class Settings(BaseModel):
 
     # Inversiones
     invert_x: bool = False
-    invert_y: bool = False
+    invert_y: bool = True
     invert_z: bool = False
 
     # LOG de entrada del mando
