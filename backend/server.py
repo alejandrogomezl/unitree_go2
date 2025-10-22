@@ -3,15 +3,16 @@ import asyncio
 from pathlib import Path
 from typing import Any, Dict
 
-# Fuerza el bucle estándar (mejora la estabilidad con aiortc/WebRTC frente a uvloop)
+# Fuerza el bucle estándar
 try:
     asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 except Exception:
     pass
 
-from fastapi import FastAPI, WebSocket, Body
+from fastapi import FastAPI, WebSocket, Body, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import StreamingResponse
 from pydantic import BaseModel
 from loguru import logger
 
@@ -42,7 +43,6 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Detener teleoperación y desconectar del robot de forma ordenada
     try:
         await manager.stop()
     except Exception:
@@ -93,14 +93,13 @@ async def api_status():
 @app.post("/api/connect")
 async def api_connect(body: ConnectBody):
     await manager.connect(body.method, body.ip)
-    # AUTOSTART teleop para evitar que se quede parado si no se pulsa "Start Teleop"
+    # AUTOSTART teleop tras conexión
     try:
         await manager.start()
         logger.info("Teleop auto-iniciada tras la conexión.")
     except Exception as e:
         logger.warning(f"No se pudo autoiniciar teleop: {e}")
     return JSONResponse({"ok": True})
-
 
 
 @app.post("/api/disconnect")
@@ -147,53 +146,70 @@ async def api_move(body: MoveBody):
 
 @app.post("/api/yaw")
 async def api_yaw(body: YawBody):
-    # yaw-only convenience
     await manager.client.send_move(0.0, 0.0, body.wz)
     return JSONResponse({"ok": True})
 
 
-# ---------- Endpoints de debug / configuración ----------
+# ---------- Debug / Config ----------
 
 @app.get("/api/gamepad/state")
 async def api_gamepad_state():
-    """Devuelve ejes/botones y el índice autodetectado para RS-X."""
     return JSONResponse(manager.gamepad_state())
 
 
 @app.post("/api/settings")
 async def api_update_settings(patch: Dict[str, Any] = Body(...)):
-    """
-    Actualiza parte de la configuración en caliente.
-    Ejemplo body:
-    {
-      "yaw_axis": 3,           // fuerza RS-X a axis(3) (None=autodetect)
-      "invert_x": false,
-      "invert_y": false,
-      "invert_z": false,
-      "deadzone": 0.12,
-      "max_speed": 0.8,
-      "max_yaw": 2.5
-    }
-    """
     cfg = manager.update_settings(patch)
     return JSONResponse({"ok": True, "settings": cfg})
 
 
 @app.post("/api/test/move")
 async def api_test_move(body: Dict[str, Any] = Body(...)):
-    """
-    Realiza un movimiento puntual para verificar que el robot obedece.
-    Body: {"x":0.4,"y":0.0,"z":0.0,"duration_ms":600}
-    """
     x = float(body.get("x", 0.0))
     y = float(body.get("y", 0.0))
     z = float(body.get("z", 0.0))
     duration_ms = int(body.get("duration_ms", 500))
-
     await manager.client.send_move(x, y, z)
     await asyncio.sleep(max(0, duration_ms) / 1000.0)
     await manager.client.estop_soft()
     return JSONResponse({"ok": True})
+
+
+# ---------- Vídeo ----------
+
+@app.get("/api/video/frame")
+async def api_video_frame():
+    """
+    Último frame como image/jpeg (204 si aún no hay frame)
+    """
+    data = await manager.client.get_latest_jpeg()
+    if not data:
+        return Response(status_code=204)
+    return Response(content=data, media_type="image/jpeg")
+
+
+@app.get("/api/video/mjpeg")
+async def api_video_mjpeg():
+    """
+    Stream MJPEG (multipart/x-mixed-replace)
+    """
+    boundary = "frame"
+
+    async def gen():
+        while True:
+            data = await manager.client.wait_for_frame(timeout=2.0)
+            if not data:
+                # keep-alive para que el <img> no “muera”
+                yield b"--" + boundary.encode() + b"\r\n\r\n"
+                continue
+            yield (
+                b"--" + boundary.encode() + b"\r\n"
+                b"Content-Type: image/jpeg\r\n"
+                b"Content-Length: " + str(len(data)).encode() + b"\r\n\r\n" +
+                data + b"\r\n"
+            )
+
+    return StreamingResponse(gen(), media_type=f"multipart/x-mixed-replace; boundary={boundary}")
 
 
 # ---------- WebSocket de logs ----------
@@ -205,7 +221,6 @@ async def ws_logs(ws: WebSocket):
     logger.info("Cliente WS conectado.")
     try:
         while True:
-            # keepalive
             await ws.receive_text()
     except Exception:
         pass

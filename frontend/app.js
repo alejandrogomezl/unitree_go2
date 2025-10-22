@@ -64,3 +64,57 @@ $("btn-disconnect").addEventListener("click", async () => {
 
 getStatus();
 connectLogs();
+
+(function attachCamera(){
+  const img = document.getElementById('go2-cam');
+  const status = document.getElementById('cam-status');
+  if (!img) return;
+
+  const mjpegUrl = '/api/video/mjpeg';
+
+  function setStatus(t) {
+    if (status) status.textContent = t || '';
+  }
+
+  // Prueba MJPEG; si falla, cambia a refresco periódico del frame
+  const test = new Image();
+  let decided = false;
+
+  test.onload = () => {
+    if (decided) return;
+    decided = true;
+    img.src = mjpegUrl;
+    setStatus('MJPEG conectado');
+  };
+  test.onerror = () => {
+    if (decided) return;
+    decided = true;
+    setStatus('MJPEG no disponible, usando refresco periódico…');
+    startPolling();
+  };
+  test.src = mjpegUrl + '?probe=1';
+
+  // Fallback a frame único cada 250ms
+  let pollTimer = null;
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(() => {
+      img.src = '/api/video/frame?ts=' + Date.now();
+    }, 250);
+  }
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  // Si en 1500ms no decidió, haz fallback
+  setTimeout(() => {
+    if (!decided) {
+      decided = true;
+      setStatus('MJPEG lento, usando refresco periódico…');
+      startPolling();
+    }
+  }, 1500);
+})();
