@@ -1,81 +1,82 @@
 import pygame
-import asyncio
 from loguru import logger
-from .logger import broadcast_gamepad
 
-def deadzone(v, dz):
-    return 0.0 if abs(v) < dz else v
+class Xbox:
+    """
+    Wrapper pygame para leer ejes/botones.
+    Proporciona lectura cruda (sin deadzone) y con deadzone.
+    """
 
+    def __init__(self, deadzone: float = 0.12):
+        self.deadzone = deadzone
+        self.joy = None
 
-class XboxReader:
-    def __init__(self, dz, max_x, max_y, max_z):
-        self.dz = dz
-        self.max_x, self.max_y, self.max_z = max_x, max_y, max_z
-        self.js = None
-
-    def init(self):
         pygame.init()
         pygame.joystick.init()
-        if pygame.joystick.get_count() == 0:
+
+        if pygame.joystick.get_count() > 0:
+            self.joy = pygame.joystick.Joystick(0)
+            self.joy.init()
+            try:
+                name = self.joy.get_name()
+            except Exception:
+                name = "Unknown Controller"
+            logger.success(f"🎮 Mando detectado: {name}")
+            logger.info(
+                f"Axes={self.joy.get_numaxes()} Buttons={self.joy.get_numbuttons()} Hats={self.joy.get_numhats()}"
+            )
+        else:
+            logger.warning("⚠️ No se ha detectado ningún mando.")
+
+    def refresh(self):
+        pygame.event.pump()
+
+    # ---------- Lecturas ----------
+
+    def _apply_deadzone(self, v: float) -> float:
+        return 0.0 if abs(v) < self.deadzone else v
+
+    def axis_raw(self, i: int) -> float:
+        """Valor crudo del eje (sin deadzone)."""
+        if not self.joy:
+            return 0.0
+        if i < 0 or i >= self.joy.get_numaxes():
+            return 0.0
+        return float(self.joy.get_axis(i))
+
+    def axis(self, i: int) -> float:
+        """Valor con deadzone aplicada."""
+        return self._apply_deadzone(self.axis_raw(i))
+
+    def button(self, i: int) -> bool:
+        if not self.joy:
             return False
-        self.js = pygame.joystick.Joystick(0)
-        self.js.init()
-        logger.success(f"Mando detectado: {self.js.get_name()}")
-        return True
+        if i < 0 or i >= self.joy.get_numbuttons():
+            return False
+        return bool(self.joy.get_button(i))
 
-    def is_connected(self):
-        return pygame.joystick.get_count() > 0
+    def connected(self) -> bool:
+        return self.joy is not None
 
-    def read(self):
-        if not self.js:
-            raise RuntimeError("No hay mando inicializado.")
-        buttons = {}
-        for e in pygame.event.get():
-            if e.type == pygame.JOYBUTTONDOWN:
-                buttons[e.button] = True
-        lx, ly, rx = self.js.get_axis(0), self.js.get_axis(1), self.js.get_axis(3)
-        x = deadzone(-ly, self.dz) * self.max_x
-        y = deadzone(lx, self.dz) * self.max_y
-        z = deadzone(rx, self.dz) * self.max_z
-        return x, y, z, buttons
+    def num_axes(self) -> int:
+        return 0 if not self.joy else self.joy.get_numaxes()
 
-    def close(self):
-        try:
-            pygame.quit()
-        except Exception:
-            pass
+    def num_buttons(self) -> int:
+        return 0 if not self.joy else self.joy.get_numbuttons()
 
+    # ---------- Autodetección ----------
 
-# === Monitor global de mando ===
-class GamepadMonitor:
-    _instance = None
-
-    def __new__(cls):
-        if not cls._instance:
-            cls._instance = super().__new__(cls)
-            cls._instance.connected = False
-            cls._instance.task = None
-        return cls._instance
-
-    async def run(self):
-        pygame.init()
-        pygame.joystick.init()
-        logger.info("🕹️ Monitor de mando iniciado.")
-        while True:
-            new_state = pygame.joystick.get_count() > 0
-            if new_state != self.connected:
-                self.connected = new_state
-                if new_state:
-                    logger.success("🎮 Mando conectado.")
-                else:
-                    logger.warning("⚠️ Mando desconectado.")
-                # Notificar al frontend en tiempo real
-                await broadcast_gamepad(new_state)
-            await asyncio.sleep(1)
-
-    async def start(self):
-        if not self.task:
-            self.task = asyncio.create_task(self.run())
-
-    def status(self):
-        return self.connected
+    def autodetect_axis_from_candidates(self, candidates: list[int]) -> int | None:
+        """
+        Devuelve el índice del eje con mayor |valor| dentro de 'candidates'.
+        Requiere movimiento real (>0.20) para confirmar.
+        """
+        if not self.connected():
+            return None
+        n = self.num_axes()
+        cands = [i for i in candidates if 0 <= i < n]
+        if not cands:
+            return None
+        vals = [(i, abs(self.axis_raw(i))) for i in cands]
+        best_i, best_val = max(vals, key=lambda t: t[1])
+        return best_i if best_val > 0.20 else None

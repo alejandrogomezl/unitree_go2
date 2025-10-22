@@ -1,47 +1,68 @@
-import asyncio
-from loguru import logger
-from .teleop import Teleop
-from .gamepad_monitor import GamepadMonitor
+from dataclasses import dataclass
+from typing import Optional, Dict, Any
+
+from .go2_client import Go2Client
+from .teleop import XboxTeleop
+from .settings import Settings
+
+@dataclass
+class Status:
+    running: bool
+    gamepad_connected: bool
+    config: dict
 
 class TeleopManager:
-    _instance = None
+    def __init__(self):
+        self.settings = Settings()
+        self.client = Go2Client()
+        self.teleop = XboxTeleop(client=self.client, settings=self.settings)
 
-    def __new__(cls):
-        if not cls._instance:
-            cls._instance = super().__new__(cls)
-            cls._instance._lock = asyncio.Lock()
-            cls._instance._task = None
-            cls._instance._teleop = None
-            cls._instance._config = {}
-            cls._instance._monitor = GamepadMonitor()
-        return cls._instance
-
-    async def connect(self, method: str, ip: str | None):
-        async with self._lock:
-            if self._task and not self._task.done():
-                logger.info("Ya hay teleop en ejecución.")
-                return {"running": True, "config": self._config, "gamepad_connected": self._monitor.status()}
-            self._teleop = Teleop(method, ip)
-            await self._teleop.start()
-            self._config = {"method": method, "ip": ip}
-            self._task = asyncio.create_task(self._teleop.run())
-            return {"running": True, "config": self._config, "gamepad_connected": self._monitor.status()}
+    async def connect(self, method: Optional[str] = None, ip: Optional[str] = None):
+        if method is None:
+            method = self.settings.method
+        if ip is None:
+            ip = self.settings.ip
+        await self.client.connect(method, ip)
 
     async def disconnect(self):
-        async with self._lock:
-            if self._task and not self._task.done():
-                self._task.cancel()
-                try: await self._task
-                except Exception: pass
-            self._task = None
-            self._teleop = None
-            logger.info("Teleop detenida.")
-            return {"running": False, "gamepad_connected": self._monitor.status()}
+        await self.client.disconnect()
 
-    async def status(self):
-        running = self._task and not self._task.done()
+    async def start(self):
+        await self.teleop.start()
+
+    async def stop(self):
+        await self.teleop.stop()
+
+    def status(self) -> Status:
+        return Status(
+            running=self.teleop.is_running(),
+            gamepad_connected=self.teleop.connected(),
+            config=self.settings.model_dump(),
+        )
+
+    # ---- helpers para debug/config ----
+
+    def gamepad_state(self) -> Dict[str, Any]:
+        n_axes = self.teleop.num_axes()
+        n_btns = max(12, self.teleop.num_buttons())
+        axes = [self.teleop.axis_raw(i) for i in range(n_axes)]
+        buttons = [self.teleop.button_state(i) for i in range(n_btns)]
         return {
-            "running": bool(running),
-            "config": self._config if running else None,
-            "gamepad_connected": self._monitor.status(),
+            "connected": self.teleop.connected(),
+            "axes": axes,
+            "buttons": buttons,
         }
+
+    def update_settings(self, patch: Dict[str, Any]) -> Dict[str, Any]:
+        # actualiza solo las claves conocidas
+        for k, v in patch.items():
+            if hasattr(self.settings, k):
+                setattr(self.settings, k, v)
+        # reconfigurar ejes si han cambiado
+        if hasattr(self.teleop, "ax_lx"):
+            self.teleop.ax_lx = self.settings.ls_x_axis if self.settings.ls_x_axis is not None else 0
+        if hasattr(self.teleop, "ax_ly"):
+            self.teleop.ax_ly = self.settings.ls_y_axis if self.settings.ls_y_axis is not None else 1
+        if hasattr(self.teleop, "ax_rx"):
+            self.teleop.ax_rx = self.settings.yaw_axis  if self.settings.yaw_axis  is not None else 3
+        return self.settings.model_dump()

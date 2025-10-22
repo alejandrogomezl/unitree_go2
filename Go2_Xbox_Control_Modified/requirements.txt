@@ -1,7 +1,0 @@
-go2-webrtc-connect>=0.2.1
-
-fastapi[standard]>=0.115.5
-uvicorn>=0.32.1
-loguru>=0.7.2
-pygame>=2.5.2
-numpy>=1.26
