@@ -119,4 +119,22 @@ class Go2Client:
     async def sit(self):
         # Si tu main.py usa "Sit" en vez de "StandDown", cámbialo aquí:
         # await self.cmd("Sit")
+        await self.cmd("Sit")
+    
+    async def standdown(self):
         await self.cmd("StandDown")
+        
+    async def frontjump(self):
+        await self.cmd("FrontJump")
+        
+    async def hello(self):
+        await self.cmd("Hello")
+
+    async def fingerheart(self):
+        await self.cmd("FingerHeart")
+        
+    async def stretch(self):
+        await self.cmd("Stretch")
+        
+    async def dance1(self):
+        await self.cmd("Dance1")

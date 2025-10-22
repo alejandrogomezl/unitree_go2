@@ -22,3 +22,16 @@ class Settings(BaseModel):
 
      # -------- Logs de mando --------
     log_gamepad: bool = False      # <--- NUEVO: desactiva todos los logs del mando si False
+
+    # -------- Mapeo de BOTONES (configurable) --------
+    # Índices según pygame/SDL para mandos tipo Xbox:
+    #   A=0, B=1, X=2, Y=3, LB=4, RB=5, BACK=6, START=7, LS=8, RS=9...
+    btn_stand: int = 11     # A por defecto → StandUp
+    btn_sit: int = 13       # B por defecto → Sit / StandDown
+    btn_stop: int = 8      # START por defecto → StopMove
+    btn_standdown: int = 12 # Y por defecto → StandDown (nuevo botón añadido)
+    btn_frontjump: int = 2  # X por defecto → FrontJump (nuevo botón añadido)
+    btn_hello: int = 1      # RB por defecto → Greet (nuevo botón añadido)
+    btn_fingerheart: int = 0       # LB por defecto → FingerHeart (nuevo botón añadido)
+    btn_stretch: int = 3    # RS por defecto → Stretch (nuevo botón añadido)
+    btn_dance1: int = 9     # BACK por defecto → Dance1 (nuevo botón añadido)

@@ -23,9 +23,10 @@ class XboxTeleop:
       x <- -LY
       z <- RX
 
-    Botones:
-      - A (0)    : StandUp
-      - START (7): StopMove
+    Botones (configurables en Settings):
+      - btn_stand : StandUp
+      - btn_sit   : Sit (o StandDown)
+      - btn_stop  : StopMove
     """
 
     def __init__(self, client, settings: Settings):
@@ -176,10 +177,7 @@ class XboxTeleop:
                     if event.type == pygame.JOYBUTTONDOWN:
                         if self.settings.log_gamepad:
                             logger.debug(f"[BTN DOWN] {event.button}")
-                        if event.button == 0:       # A -> StandUp
-                            await self.client.stand()
-                        elif event.button == 7:     # START -> StopMove
-                            await self.client.estop_soft()
+                        await self._handle_button_down(event.button)
                     elif event.type == pygame.JOYBUTTONUP:
                         if self.settings.log_gamepad:
                             logger.debug(f"[BTN UP] {event.button}")
@@ -224,3 +222,42 @@ class XboxTeleop:
                 logger.warning(f"Teleop loop error: {e}")
 
             await asyncio.sleep(0.03)  # ~33 Hz
+
+    # ---------- Acciones de botones (configurables) ----------
+
+    async def _handle_button_down(self, btn: int):
+        """
+        Ejecuta la acción según el mapeo actual en settings.
+        """
+        try:
+            if btn == int(self.settings.btn_stand):
+                await self.client.stand()
+                return
+            if btn == int(self.settings.btn_sit):
+                # Si tu firmware usa "Sit" en lugar de "StandDown", cambia la impl en Go2Client.sit()
+                await self.client.sit()
+                return
+            if btn == int(self.settings.btn_stop):
+                await self.client.estop_soft()
+                return
+            if btn == int(self.settings.btn_standdown):
+                await self.client.standdown()
+                return
+            if btn == int(self.settings.btn_frontjump):
+                await self.client.frontjump()
+                return
+            if btn == int(self.settings.btn_hello):
+                await self.client.hello()
+                return
+            if btn == int(self.settings.btn_fingerheart):
+                await self.client.fingerheart()
+                return
+            if btn == int(self.settings.btn_stretch):
+                await self.client.stretch()
+                return
+            if btn == int(self.settings.btn_dance1):
+                await self.client.dance1()
+                return
+            
+        except Exception as e:
+            logger.warning(f"Acción de botón falló (btn={btn}): {e}")
