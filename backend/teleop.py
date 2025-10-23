@@ -34,7 +34,6 @@ class XboxTeleop:
         self.settings = settings
 
         self._task: asyncio.Task | None = None
-        self._connection_task: asyncio.Task | None = None
         self._running = False
         self._last_dump = 0.0
 
@@ -66,9 +65,6 @@ class XboxTeleop:
             logger.info(f"[JOY ] Axes={self.js.get_numaxes()} Buttons={self.js.get_numbuttons()} Hats={self.js.get_numhats()}")
         elif not self.gc:
             logger.warning("⚠️ No se ha detectado ningún mando en SDL2 ni Joystick.")
-            pygame.quit()
-            pygame.init()
-            pygame.joystick.init()
 
         # Ejes (forzables desde settings)
         self.ax_lx = AX_LX_DEFAULT if self.settings.ls_x_axis is None else int(self.settings.ls_x_axis)
@@ -83,44 +79,6 @@ class XboxTeleop:
 
     def connected(self) -> bool:
         return bool(self.gc) or bool(self.js)
-
-    def _try_reconnect(self):
-        """Intenta reconectar controladores"""
-        # Reinicia joystick para detectar nuevos dispositivos
-        pygame.joystick.quit()
-        pygame.joystick.init()
-        
-        # Intenta SDL2 GameController
-        if not self.gc:
-            try:
-                from pygame._sdl2 import controller as sdl2c  # type: ignore
-                if sdl2c.get_count() > 0:
-                    self.gc = sdl2c.Controller(0)
-                    logger.success(f"🎮 [SDL2] Controlador reconectado: {self.gc.name}")
-                    return True
-            except Exception:
-                pass
-
-        # Intenta Joystick clásico
-        if not self.js and pygame.joystick.get_count() > 0:
-            self.js = pygame.joystick.Joystick(0)
-            self.js.init()
-            try:
-                name = self.js.get_name()
-            except Exception:
-                name = "Unknown Controller"
-            logger.success(f"🎮 [JOY] Joystick reconectado: {name}")
-            return True
-        
-        return False
-
-    async def _connection_monitor(self):
-        """Monitorea y reintenta conexión cada 2 segundos"""
-        while self._running:
-            if not self.connected():
-                logger.info("🔄 Intentando reconectar controlador...")
-                self._try_reconnect()
-            await asyncio.sleep(2.0)
 
     def num_axes(self) -> int:
         if self.gc:
@@ -186,7 +144,6 @@ class XboxTeleop:
             return
         self._running = True
         self._task = asyncio.create_task(self._loop())
-        self._connection_task = asyncio.create_task(self._connection_monitor())
         logger.info("Teleoperación iniciada.")
 
     async def stop(self):
@@ -200,13 +157,6 @@ class XboxTeleop:
             except asyncio.CancelledError:
                 pass
             self._task = None
-        if self._connection_task:
-            self._connection_task.cancel()
-            try:
-                await self._connection_task
-            except asyncio.CancelledError:
-                pass
-            self._connection_task = None
         try:
             await self.client.estop_soft()
         except Exception:
