@@ -1,12 +1,13 @@
 from typing import Dict
 from pydantic import BaseModel
+import platform
 
 class Settings(BaseModel):
     # Conexión
     method: str = "localsta"
     ip: str | None = None
 
-    # Movimiento
+    # Parámetros de movimiento
     deadzone: float = 0.12
     max_speed: float = 0.9
     max_yaw: float = 2.8
@@ -19,26 +20,35 @@ class Settings(BaseModel):
     invert_y: bool = True
     invert_z: bool = True
 
-    log_gamepad: bool = False
+    # Logs del mando
+    log_gamepad: bool = True
 
-    # Mapeo de botones
-    button_actions: Dict[int, str] = {
+    # -------- Mapeo dinámico de botones --------
+    # Clave: índice del botón | Valor: comando SPORT_CMD
+    button_actions: Dict[int, str] = (
+    {
+        # macOS mappings
+        11: "StandUp",
+        13: "Sit",
+        1: "Hello",
+        0: "FingerHeart",
+        3: "Stretch",
+        9: "Dance1",
+        8: "StopMove",
+        2: "FrontJump",
+        12: "StandDown",
+    }
+    if platform.system() == "Darwin"
+    else {
+        # Raspberry/Linux mappings (más estándar)
         0: "StandUp",
         1: "Sit",
         2: "Hello",
         3: "FingerHeart",
         4: "Stretch",
         5: "Dance1",
-        6: "StopMove"
+        6: "StopMove",
+        7: "FrontJump",
+        8: "StandDown",
     }
-
-    # Mapeo de cruceta (botones en mac)
-    dpad_map: Dict[str, int] = {"up": 14, "down": 15, "left": 16, "right": 17}
-
-    # Acciones de cruceta
-    dpad_actions: Dict[str, str] = {
-        "up": "StandUp",
-        "down": "Sit",
-        "left": "Hello",
-        "right": "FingerHeart",
-    }
+)
