@@ -51,8 +51,8 @@ class Settings(BaseModel):
         1: "Hello",
         0: "FingerHeart",
         3: "Stretch",
-        9: "Dance1",
-        8: "StopMove",
+        4: "Dance1",
+        10: "StopMove",
         2: "FrontJump",
     }
     )
