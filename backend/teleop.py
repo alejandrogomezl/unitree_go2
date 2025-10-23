@@ -181,6 +181,10 @@ class XboxTeleop:
                     elif event.type == pygame.JOYBUTTONUP:
                         if self.settings.log_gamepad:
                             logger.debug(f"[BTN UP] {event.button}")
+                    elif event.type == pygame.JOYHATMOTION:
+                        if self.settings.log_gamepad:
+                            logger.debug(f"[HAT MOTION] {event.hat} -> {event.value}")
+                            await self._handle_hat_motion(event.value)
 
                 # Lee ejes crudos
                 lx = self.axis_raw(self.ax_lx)
@@ -245,4 +249,25 @@ class XboxTeleop:
 
         except Exception as e:
             logger.warning(f"Acción de botón falló (btn={btn}): {e}")
+            
+    async def _handle_hat_motion(self, hat_value):
+        """
+        Ejecuta una acción según el valor del D-Pad (cruceta).
+        Ejemplo: (0, -1) -> Sit
+        """
+        try:
+            cmd_name = self.settings.hat_actions.get(hat_value)
+            if not cmd_name:
+                if self.settings.log_gamepad:
+                    logger.debug(f"🎮 D-Pad {hat_value} sin acción asignada.")
+                return
+
+            if self.settings.log_gamepad:
+                logger.info(f"🎮 D-Pad {hat_value} → Ejecutando comando: {cmd_name}")
+
+            await self.client.cmd(cmd_name)
+
+        except Exception as e:
+            logger.warning(f"Acción de cruceta falló ({hat_value}): {e}")
+
 

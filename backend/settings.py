@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Tuple
 from pydantic import BaseModel
 import platform
 
@@ -11,9 +11,16 @@ class Settings(BaseModel):
     deadzone: float = 0.12
     max_speed: float = 0.9
     max_yaw: float = 2.8
-    ls_x_axis: int | None = None
-    ls_y_axis: int | None = None
-    yaw_axis: int | None = None
+    if platform.system() == "Darwin":
+        # macOS -> autodetección completa
+        ls_x_axis: int | None = None
+        ls_y_axis: int | None = None
+        yaw_axis: int | None = None
+    else:
+        # Linux / Raspberry -> yaw fijo en 3
+        ls_x_axis: int | None = None
+        ls_y_axis: int | None = None
+        yaw_axis: int | None = 3
 
     # Inversiones
     invert_x: bool = False
@@ -41,14 +48,17 @@ class Settings(BaseModel):
     if platform.system() == "Darwin"
     else {
         # Raspberry/Linux mappings (más estándar)
-        0: "StandUp",
-        1: "Sit",
-        2: "Hello",
-        3: "FingerHeart",
-        4: "Stretch",
-        5: "Dance1",
-        6: "StopMove",
-        7: "FrontJump",
-        8: "StandDown",
+        1: "Hello",
+        0: "FingerHeart",
+        3: "Stretch",
+        9: "Dance1",
+        8: "StopMove",
+        2: "FrontJump",
     }
-)
+    )
+    
+    hat_actions: Dict[Tuple[int, int], str] = {
+        (1, 0): "Sit",
+        (0, 1): "StandUp",
+        (0, -1): "StandDown",
+    }
