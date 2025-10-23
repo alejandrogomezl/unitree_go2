@@ -65,6 +65,9 @@ class XboxTeleop:
             logger.info(f"[JOY ] Axes={self.js.get_numaxes()} Buttons={self.js.get_numbuttons()} Hats={self.js.get_numhats()}")
         elif not self.gc:
             logger.warning("⚠️ No se ha detectado ningún mando en SDL2 ni Joystick.")
+            pygame.quit()
+            pygame.init()
+            pygame.joystick.init()
 
         # Ejes (forzables desde settings)
         self.ax_lx = AX_LX_DEFAULT if self.settings.ls_x_axis is None else int(self.settings.ls_x_axis)
