@@ -30,6 +30,19 @@
       <pre id="logs"></pre>
     </section>
 
+    <!-- Bloque: Selección de modo de movimiento -->
+    <section class="card">
+      <h3>Movement Mode</h3>
+      <select id="modeSelector">
+        <option value="">-- Select mode --</option>
+        <option value="normal">Normal (Walk)</option>
+        <option value="run">Run (Fast)</option>
+        <option value="stairs">Stairs (Climb)</option>
+      </select>
+      <button id="setModeBtn">Set Mode</button>
+    </section>
+
+
     <!-- Bloque de control manual -->
     <section class="card">
       <h3>Manual Command</h3>
@@ -38,7 +51,7 @@
       </select>
       <button id="sendCmdBtn">Execute Command</button>
     </section>
-    
+
   </div>
 
   <section id="camera" style="margin:16px 0;">

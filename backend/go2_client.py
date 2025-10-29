@@ -232,3 +232,21 @@ class Go2Client:
         except asyncio.TimeoutError:
             pass
         return await self.get_latest_jpeg()
+
+    async def set_mode(self, mode: str):
+        from go2_webrtc_driver.proto import sport_command_pb2
+        msg_speed = sport_command_pb2.SpeedLevel()
+        msg_gait = sport_command_pb2.SwitchGait()
+
+        if mode == "run":
+            msg_speed.level, msg_gait.gait = 2, 1
+        elif mode == "normal":
+            msg_speed.level, msg_gait.gait = 1, 0
+        elif mode == "stairs":
+            msg_speed.level, msg_gait.gait = 0, 2
+        else:
+            raise ValueError("Mode must be run, normal, or stairs")
+
+        await self.conn.publish(RTC_TOPIC.SPORT_CMD, SPORT_CMD["SpeedLevel"], msg_speed.SerializeToString())
+        await asyncio.sleep(0.2)
+        await self.conn.publish(RTC_TOPIC.SPORT_CMD, SPORT_CMD["SwitchGait"], msg_gait.SerializeToString())

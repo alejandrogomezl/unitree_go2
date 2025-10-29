@@ -205,3 +205,30 @@ document.getElementById("sendCmdBtn").addEventListener("click", async () => {
     alert("Failed to send command: " + err.message);
   }
 });
+
+// === Movement Mode Control ===
+
+document.getElementById("setModeBtn").addEventListener("click", async () => {
+  const mode = document.getElementById("modeSelector").value;
+  if (!mode) {
+    alert("Select a mode first!");
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    });
+
+    if (!response.ok) throw new Error(`Error ${response.status}`);
+
+    const data = await response.json();
+    console.log("Mode set:", data);
+    alert(`Robot switched to ${mode.toUpperCase()} mode successfully`);
+  } catch (err) {
+    console.error("Failed to set mode:", err);
+    alert("Failed to set mode: " + err.message);
+  }
+});

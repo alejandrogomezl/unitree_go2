@@ -241,3 +241,17 @@ async def send_cmd(body: CmdBody):
         return {"ok": True, "cmd": cmd_name}
     except Exception as e:
         logger.exception(f"Error executing command {cmd_name}: {e}")
+        
+class ModeBody(BaseModel):
+    mode: str
+
+@app.post("/api/mode")
+async def set_mode(body: ModeBody):
+    """Set robot movement mode: run / normal / stairs"""
+    try:
+        await manager.client.set_mode(body.mode)
+        logger.info(f"Robot mode changed to {body.mode}")
+        return {"ok": True, "mode": body.mode}
+    except Exception as e:
+        logger.exception("Error setting mode")
+        raise HTTPException(status_code=500, detail=str(e))
