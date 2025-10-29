@@ -118,3 +118,90 @@ connectLogs();
     }
   }, 1500);
 })();
+
+// === Manual SPORT_CMD execution ===
+
+// Lista de comandos (copiada del diccionario Python)
+const SPORT_CMDS = {
+  "Damp": 1001,
+  "BalanceStand": 1002,
+  "StopMove": 1003,
+  "StandUp": 1004,
+  "StandDown": 1005,
+  "RecoveryStand": 1006,
+  "Euler": 1007,
+  "Move": 1008,
+  "Sit": 1009,
+  "RiseSit": 1010,
+  "SwitchGait": 1011,
+  "Trigger": 1012,
+  "BodyHeight": 1013,
+  "FootRaiseHeight": 1014,
+  "SpeedLevel": 1015,
+  "Hello": 1016,
+  "Stretch": 1017,
+  "TrajectoryFollow": 1018,
+  "ContinuousGait": 1019,
+  "Content": 1020,
+  "Wallow": 1021,
+  "Dance1": 1022,
+  "Dance2": 1023,
+  "GetBodyHeight": 1024,
+  "GetFootRaiseHeight": 1025,
+  "GetSpeedLevel": 1026,
+  "SwitchJoystick": 1027,
+  "Pose": 1028,
+  "Scrape": 1029,
+  "FrontFlip": 1030,
+  "LeftFlip": 1042,
+  "RightFlip": 1043,
+  "BackFlip": 1044,
+  "FrontJump": 1031,
+  "FrontPounce": 1032,
+  "WiggleHips": 1033,
+  "GetState": 1034,
+  "EconomicGait": 1035,
+  "LeadFollow": 1045,
+  "FingerHeart": 1036,
+  "Bound": 1304,
+  "MoonWalk": 1305,
+  "OnesidedStep": 1303,
+  "CrossStep": 1302,
+  "Handstand": 1301,
+  "StandOut": 1039,
+  "FreeWalk": 1045,
+  "Standup": 1050,
+  "CrossWalk": 1051
+};
+
+// Rellenar el selector dinámicamente
+const cmdSelector = document.getElementById("cmdSelector");
+for (const cmdName of Object.keys(SPORT_CMDS)) {
+  const opt = document.createElement("option");
+  opt.value = cmdName;
+  opt.textContent = cmdName;
+  cmdSelector.appendChild(opt);
+}
+
+// Acción del botón
+document.getElementById("sendCmdBtn").addEventListener("click", async () => {
+  const cmdName = cmdSelector.value;
+  if (!cmdName) {
+    alert("Select a command first!");
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/cmd", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cmd: cmdName })
+    });
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}`);
+    }
+    console.log(`Command ${cmdName} sent`);
+  } catch (err) {
+    alert("Failed to send command: " + err.message);
+  }
+});

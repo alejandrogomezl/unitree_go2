@@ -227,3 +227,17 @@ async def ws_logs(ws: WebSocket):
     finally:
         await remove_ws(ws)
         logger.info("Cliente WS desconectado.")
+
+class CmdBody(BaseModel):
+    cmd: str
+
+@app.post("/api/cmd")
+async def send_cmd(body: CmdBody):
+    """Execute a SPORT_CMD action manually from the web interface"""
+    cmd_name = body.cmd
+    try:
+        await manager.client.cmd(cmd_name)
+        logger.info(f"Executed manual command: {cmd_name}")
+        return {"ok": True, "cmd": cmd_name}
+    except Exception as e:
+        logger.exception(f"Error executing command {cmd_name}: {e}")
